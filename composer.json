@@ -64,6 +64,6 @@
             "@php ./vendor/bin/testbench serve"
         ]
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }
