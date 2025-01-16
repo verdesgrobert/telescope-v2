@@ -42,6 +42,29 @@ abstract class EntryController extends Controller
     }
 
     /**
+     * List the entries of the given type.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Laravel\Telescope\Contracts\EntriesRepository  $storage
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function indexslow(Request $request, EntriesRepository $storage)
+    {
+        $results = $storage->getSlowestFirst(
+            $this->entryType(),
+            EntryQueryOptions::fromRequest($request)
+        );
+        return response()->json([
+            'entries' => $storage->getSlowestFirst(
+                $this->entryType(),
+                EntryQueryOptions::fromRequest($request)
+            ),
+            'analytics' => $results,
+            'status' => $this->status(),
+        ]);
+    }
+
+    /**
      * Get an entry with the given ID.
      *
      * @param  \Laravel\Telescope\Contracts\EntriesRepository  $storage
@@ -65,7 +88,7 @@ abstract class EntryController extends Controller
      */
     protected function status()
     {
-        if (! config('telescope.enabled', false)) {
+        if (!config('telescope.enabled', false)) {
             return 'disabled';
         }
 
@@ -73,9 +96,9 @@ abstract class EntryController extends Controller
             return 'paused';
         }
 
-        $watcher = config('telescope.watchers.'.$this->watcher());
+        $watcher = config('telescope.watchers.' . $this->watcher());
 
-        if (! $watcher || (isset($watcher['enabled']) && ! $watcher['enabled'])) {
+        if (!$watcher || (isset($watcher['enabled']) && !$watcher['enabled'])) {
             return 'off';
         }
 

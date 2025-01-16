@@ -64,9 +64,9 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
         $entry = EntryModel::on($this->connection)->whereUuid($id)->firstOrFail();
 
         $tags = $this->table('telescope_entries_tags')
-                        ->where('entry_uuid', $id)
-                        ->pluck('tag')
-                        ->all();
+            ->where('entry_uuid', $id)
+            ->pluck('tag')
+            ->all();
 
         return new EntryResult(
             $entry->uuid,
@@ -94,7 +94,90 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
             ->take($options->limit)
             ->orderByDesc('sequence')
             ->get()->reject(function ($entry) {
-                return ! is_array($entry->content);
+                return !is_array($entry->content);
+            })->map(function ($entry) {
+                return new EntryResult(
+                    $entry->uuid,
+                    $entry->sequence,
+                    $entry->batch_id,
+                    $entry->type,
+                    $entry->family_hash,
+                    $entry->content,
+                    $entry->created_at,
+                    []
+                );
+            })->values();
+    }
+
+    /**
+     * Return all the entries of a given type.
+     *
+     * @param  string|null  $type
+     * @param  \Laravel\Telescope\Storage\EntryQueryOptions  $options
+     * @return \Illuminate\Support\Collection|\Laravel\Telescope\EntryResult[]
+     */
+    public function getSlowestFirst($type, EntryQueryOptions $options)
+    {
+        $result = EntryModel::on($this->connection)
+            ->where('type', $type)
+            ->where('sequence', '=', $options->beforeSequence)
+            ->select(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2)) as minValue"))
+            ->get()
+            ->first();
+        //$options->beforeSequence = EntryModel::on($this->connection);
+        $query = EntryModel::on($this->connection)
+            ->withTelescopeOptionsSlowest($type, $options);
+        if ($result) {
+            error_log($result);
+            $minValue = $result->minValue;
+            $query = $query->where(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"), '<', $minValue);
+        }
+        return $query
+            ->take($options->limit)
+            ->orderByDesc(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"))
+            ->get()->reject(function ($entry) {
+                return !is_array($entry->content);
+            })->map(function ($entry) {
+                return new EntryResult(
+                    $entry->uuid,
+                    $entry->sequence,
+                    $entry->batch_id,
+                    $entry->type,
+                    $entry->family_hash,
+                    $entry->content,
+                    $entry->created_at,
+                    []
+                );
+            })->values();
+    }/**
+     * Return all the entries of a given type.
+     *
+     * @param  string|null  $type
+     * @param  \Laravel\Telescope\Storage\EntryQueryOptions  $options
+     * @return \Illuminate\Support\Collection|\Laravel\Telescope\EntryResult[]
+     */
+    
+    public function getAggregates($type, EntryQueryOptions $options)
+    {
+        $result = EntryModel::on($this->connection)
+            ->where('type', $type)
+            ->where('sequence', '=', $options->beforeSequence)
+            ->select(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2)) as minValue"))
+            ->get()
+            ->first();
+        //$options->beforeSequence = EntryModel::on($this->connection);
+        $query = EntryModel::on($this->connection)
+            ->withTelescopeOptionsSlowest($type, $options);
+        if ($result) {
+            error_log($result);
+            $minValue = $result->minValue;
+            $query = $query->where(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"), '<', $minValue);
+        }
+        return $query
+            ->take($options->limit)
+            ->orderByDesc(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"))
+            ->get()->reject(function ($entry) {
+                return !is_array($entry->content);
             })->map(function ($entry) {
                 return new EntryResult(
                     $entry->uuid,
@@ -118,9 +201,9 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
     protected function countExceptionOccurences(IncomingEntry $exception)
     {
         return $this->table('telescope_entries')
-                    ->where('type', EntryType::EXCEPTION)
-                    ->where('family_hash', $exception->familyHash())
-                    ->count();
+            ->where('type', EntryType::EXCEPTION)
+            ->where('family_hash', $exception->familyHash())
+            ->count();
     }
 
     /**
@@ -165,14 +248,15 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
                 $occurrences = $this->countExceptionOccurences($exception);
 
                 $this->table('telescope_entries')
-                        ->where('type', EntryType::EXCEPTION)
-                        ->where('family_hash', $exception->familyHash())
-                        ->update(['should_display_on_index' => false]);
+                    ->where('type', EntryType::EXCEPTION)
+                    ->where('family_hash', $exception->familyHash())
+                    ->update(['should_display_on_index' => false]);
 
                 return array_merge($exception->toArray(), [
                     'family_hash' => $exception->familyHash(),
                     'content' => json_encode(array_merge(
-                        $exception->content, ['occurrences' => $occurrences + 1]
+                        $exception->content,
+                        ['occurrences' => $occurrences + 1]
                     )),
                 ]);
             })->toArray());
@@ -217,24 +301,25 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
 
         foreach ($updates as $update) {
             $entry = $this->table('telescope_entries')
-                            ->where('uuid', $update->uuid)
-                            ->where('type', $update->type)
-                            ->first();
+                ->where('uuid', $update->uuid)
+                ->where('type', $update->type)
+                ->first();
 
-            if (! $entry) {
+            if (!$entry) {
                 $failedUpdates[] = $update;
 
                 continue;
             }
 
             $content = json_encode(array_merge(
-                json_decode($entry->content ?? $entry['content'] ?? [], true) ?: [], $update->changes
+                json_decode($entry->content ?? $entry['content'] ?? [], true) ?: [],
+                $update->changes
             ));
 
             $this->table('telescope_entries')
-                            ->where('uuid', $update->uuid)
-                            ->where('type', $update->type)
-                            ->update(['content' => $content]);
+                ->where('uuid', $update->uuid)
+                ->where('type', $update->type)
+                ->update(['content' => $content]);
 
             $this->updateTags($update);
         }
@@ -250,7 +335,7 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
      */
     protected function updateTags($entry)
     {
-        if (! empty($entry->tagsChanges['added'])) {
+        if (!empty($entry->tagsChanges['added'])) {
             try {
                 $this->table('telescope_entries_tags')->insert(
                     collect($entry->tagsChanges['added'])->map(function ($tag) use ($entry) {
@@ -327,10 +412,10 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
         }
 
         $this->table('telescope_monitoring')
-                    ->insert(collect($tags)
-                    ->mapWithKeys(function ($tag) {
-                        return ['tag' => $tag];
-                    })->all());
+            ->insert(collect($tags)
+                ->mapWithKeys(function ($tag) {
+                    return ['tag' => $tag];
+                })->all());
     }
 
     /**
@@ -354,7 +439,7 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
     public function prune(DateTimeInterface $before, $keepExceptions)
     {
         $query = $this->table('telescope_entries')
-                ->where('created_at', '<', $before);
+            ->where('created_at', '<', $before);
 
         if ($keepExceptions) {
             $query->where('type', '!=', 'exception');

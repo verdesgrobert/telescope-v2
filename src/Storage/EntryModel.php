@@ -73,6 +73,25 @@ class EntryModel extends Model
 
         return $query;
     }
+    /**
+     * Scope the query for the given query options.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $type
+     * @param  \Laravel\Telescope\Storage\EntryQueryOptions  $options
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWithTelescopeOptionsSlowest($query, $type, EntryQueryOptions $options)
+    {
+        $this->whereType($query, $type)
+                ->whereBatchId($query, $options)
+                ->whereTag($query, $options)
+                ->whereFamilyHash($query, $options)
+                //->whereBeforeSequence($query, $options)
+                ->filter($query, $options);
+
+        return $query;
+    }
 
     /**
      * Scope the query for the given type.

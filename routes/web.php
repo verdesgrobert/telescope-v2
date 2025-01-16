@@ -46,6 +46,7 @@ Route::get('/telescope-api/cache/{telescopeEntryId}', 'CacheController@show');
 
 // Queries entries...
 Route::post('/telescope-api/queries', 'QueriesController@index');
+Route::post('/telescope-api/slowqueries', 'QueriesController@indexslow');
 Route::get('/telescope-api/queries/{telescopeEntryId}', 'QueriesController@show');
 
 // Eloquent entries...
@@ -54,6 +55,7 @@ Route::get('/telescope-api/models/{telescopeEntryId}', 'ModelsController@show');
 
 // Requests entries...
 Route::post('/telescope-api/requests', 'RequestsController@index');
+Route::post('/telescope-api/slowrequests', 'RequestsController@indexslow');
 Route::get('/telescope-api/requests/{telescopeEntryId}', 'RequestsController@show');
 
 // View entries...

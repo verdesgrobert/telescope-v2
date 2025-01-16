@@ -114,6 +114,11 @@ export default [
         name: 'queries',
         component: require('./screens/queries/index').default,
     },
+    {
+        path: '/slowqueries',
+        name: 'slowqueries',
+        component: require('./screens/slowqueries/index').default,
+    },
 
     {
         path: '/models/:id',
@@ -137,6 +142,11 @@ export default [
         path: '/requests',
         name: 'requests',
         component: require('./screens/requests/index').default,
+    },
+    {
+        path: '/slowrequests',
+        name: 'slowrequests',
+        component: require('./screens/slowrequests/index').default,
     },
 
     {
