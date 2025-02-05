@@ -373,6 +373,7 @@ class IncomingEntry
         return [
             'uuid' => $this->uuid,
             'batch_id' => $this->batchId,
+            'duration' => $this->duration,
             'family_hash' => $this->familyHash,
             'type' => $this->type,
             'content' => $this->content,
