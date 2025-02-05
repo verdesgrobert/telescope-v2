@@ -121,7 +121,7 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
         $result = EntryModel::on($this->connection)
             ->where('type', $type)
             ->where('sequence', '=', $options->beforeSequence)
-            ->select(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2)) as minValue"))
+            ->select('duration')
             ->get()
             ->first();
         //$options->beforeSequence = EntryModel::on($this->connection);
@@ -130,11 +130,11 @@ class DatabaseEntriesRepository implements Contract, ClearableRepository, Prunab
         if ($result) {
             error_log($result);
             $minValue = $result->minValue;
-            $query = $query->where(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"), '<', $minValue);
+            $query = $query->where('duration', '<', $minValue);
         }
         return $query
             ->take($options->limit)
-            ->orderByDesc(DB::raw("CAST(JSON_EXTRACT(content, '$." . ($type == "query" ? "time" : "duration") . "') AS DECIMAL(10, 2))"))
+            ->orderByDesc('duration')
             ->get()->reject(function ($entry) {
                 return !is_array($entry->content);
             })->map(function ($entry) {

@@ -27,6 +27,12 @@ class IncomingEntry
      * @var string
      */
     public $type;
+    /**
+     * The entry's duration.
+     *
+     * @var float
+     */
+    public $duration;
 
     /**
      * The entry's family hash.
@@ -77,8 +83,9 @@ class IncomingEntry
         $this->recordedAt = now();
 
         $this->content = array_merge($content, ['hostname' => gethostname()]);
-
+        $this->duration = -1;
         // $this->tags = ['hostname:'.gethostname()];
+
     }
 
     /**
@@ -149,7 +156,20 @@ class IncomingEntry
             ],
         ]);
 
-        $this->tags(['Auth:'.$user->getAuthIdentifier()]);
+        $this->tags(['Auth:' . $user->getAuthIdentifier()]);
+
+        return $this;
+    }
+
+    /**
+     * Merge tags into the entry's existing tags.
+     *
+     * @param  array  $tags
+     * @return $this
+     */
+    public function durationMs(float $duration)
+    {
+        $this->duration = $duration;
 
         return $this;
     }
@@ -174,7 +194,7 @@ class IncomingEntry
      */
     public function hasMonitoredTag()
     {
-        if (! empty($this->tags)) {
+        if (!empty($this->tags)) {
             return app(EntriesRepository::class)->isMonitoring($this->tags);
         }
 
@@ -223,6 +243,16 @@ class IncomingEntry
     }
 
     /**
+     * Determine if the incoming entry is a slow query.
+     *
+     * @return bool
+     */
+    public function isSlowRequest()
+    {
+        return $this->type === EntryType::REQUEST && ($this->content['slow'] ?? false);
+    }
+
+    /**
      * Determine if the incoming entry is a event entry.
      *
      * @return bool
@@ -260,7 +290,7 @@ class IncomingEntry
     public function isFailedJob()
     {
         return $this->type === EntryType::JOB &&
-               ($this->content['status'] ?? null) === 'failed';
+            ($this->content['status'] ?? null) === 'failed';
     }
 
     /**

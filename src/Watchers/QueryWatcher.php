@@ -29,7 +29,7 @@ class QueryWatcher extends Watcher
      */
     public function recordQuery(QueryExecuted $event)
     {
-        if (! Telescope::isRecording()) {
+        if (!Telescope::isRecording()) {
             return;
         }
 
@@ -45,7 +45,7 @@ class QueryWatcher extends Watcher
                 'file' => $caller['file'],
                 'line' => $caller['line'],
                 'hash' => $this->familyHash($event),
-            ])->tags($this->tags($event)));
+            ])->tags($this->tags($event))->durationMs($time));
         }
     }
 
@@ -99,7 +99,7 @@ class QueryWatcher extends Watcher
 
             if ($binding === null) {
                 $binding = 'null';
-            } elseif (! is_int($binding) && ! is_float($binding)) {
+            } elseif (!is_int($binding) && !is_float($binding)) {
                 $binding = $this->quoteStringBinding($event, $binding);
             }
 
@@ -142,6 +142,6 @@ class QueryWatcher extends Watcher
             '\\' => '\\\\',
         ]);
 
-        return "'".$binding."'";
+        return "'" . $binding . "'";
     }
 }

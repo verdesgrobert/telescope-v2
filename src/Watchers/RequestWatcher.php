@@ -36,14 +36,16 @@ class RequestWatcher extends Watcher
      */
     public function recordRequest(RequestHandled $event)
     {
-        if (! Telescope::isRecording() ||
+        if (
+            !Telescope::isRecording() ||
             $this->shouldIgnoreHttpMethod($event) ||
-            $this->shouldIgnoreStatusCode($event)) {
+            $this->shouldIgnoreStatusCode($event)
+        ) {
             return;
         }
 
         $startTime = defined('LARAVEL_START') ? LARAVEL_START : $event->request->server('REQUEST_TIME_FLOAT');
-
+        $duration = $startTime ? floor((microtime(true) - $startTime) * 1000) : null;
         Telescope::recordRequest(IncomingEntry::make([
             'ip_address' => $event->request->ip(),
             'uri' => str_replace($event->request->root(), '', $event->request->fullUrl()) ?: '/',
@@ -57,7 +59,20 @@ class RequestWatcher extends Watcher
             'response' => $this->response($event->response),
             'duration' => $startTime ? floor((microtime(true) - $startTime) * 1000) : null,
             'memory' => round(memory_get_peak_usage(true) / 1024 / 1024, 1),
-        ]));
+            'slow' => isset($this->options['slow_request_threshold']) && $duration > ($this->options['slow_request_threshold'] ?? 500),
+        ])->tags($this->tags($event))->durationMs($duration));
+    }
+    /**
+     * Get the tags for the query.
+     *
+     * @param  \Illuminate\Foundation\Http\Events\RequestHandled  $event
+     * @return array
+     */
+    protected function tags($event)
+    {
+        $startTime = defined('LARAVEL_START') ? LARAVEL_START : $event->request->server('REQUEST_TIME_FLOAT');
+        $duration = $startTime ? floor((microtime(true) - $startTime) * 1000) : null;
+        return isset($this->options['slow_request_threshold']) && $duration >= $this->options['slow_request_threshold'] ? ['slow'] : [];
     }
 
     /**
@@ -99,10 +114,11 @@ class RequestWatcher extends Watcher
     protected function headers($headers)
     {
         $headers = collect($headers)
-            ->map(fn ($header) => implode(', ', $header))
+            ->map(fn($header) => implode(', ', $header))
             ->all();
 
-        return $this->hideParameters($headers,
+        return $this->hideParameters(
+            $headers,
             Telescope::$hiddenRequestHeaders
         );
     }
@@ -115,7 +131,8 @@ class RequestWatcher extends Watcher
      */
     protected function payload($payload)
     {
-        return $this->hideParameters($payload,
+        return $this->hideParameters(
+            $payload,
             Telescope::$hiddenRequestParameters
         );
     }
@@ -162,7 +179,7 @@ class RequestWatcher extends Watcher
         array_walk_recursive($files, function (&$file) {
             $file = [
                 'name' => $file->getClientOriginalName(),
-                'size' => $file->isFile() ? ($file->getSize() / 1000).'KB' : '0',
+                'size' => $file->isFile() ? ($file->getSize() / 1000) . 'KB' : '0',
             ];
         });
 
@@ -180,11 +197,13 @@ class RequestWatcher extends Watcher
         $content = $response->getContent();
 
         if (is_string($content)) {
-            if (is_array(json_decode($content, true)) &&
-                json_last_error() === JSON_ERROR_NONE) {
+            if (
+                is_array(json_decode($content, true)) &&
+                json_last_error() === JSON_ERROR_NONE
+            ) {
                 return $this->contentWithinLimits($content)
-                        ? $this->hideParameters(json_decode($content, true), Telescope::$hiddenResponseParameters)
-                        : 'Purged By Telescope';
+                    ? $this->hideParameters(json_decode($content, true), Telescope::$hiddenResponseParameters)
+                    : 'Purged By Telescope';
             }
 
             if (Str::startsWith(strtolower($response->headers->get('Content-Type') ?? ''), 'text/plain')) {
@@ -193,7 +212,7 @@ class RequestWatcher extends Watcher
         }
 
         if ($response instanceof RedirectResponse) {
-            return 'Redirected to '.$response->getTargetUrl();
+            return 'Redirected to ' . $response->getTargetUrl();
         }
 
         if ($response instanceof IlluminateResponse && $response->getOriginalContent() instanceof View) {
